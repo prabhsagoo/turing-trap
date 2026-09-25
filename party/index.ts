@@ -71,6 +71,28 @@ export default class GameServer implements Party.Server {
     };
   }
 
+  // Handle centralized matchmaking directly in PartyKit so all clients land in the same room
+  async onRequest(req: Party.Request) {
+    if (this.room.id === "matchmaker" && req.method === "POST") {
+      const now = Date.now();
+      let activeRoom = await this.room.storage.get<{ roomCode: string; createdAt: number }>("active_public_room");
+
+      if (!activeRoom || now - activeRoom.createdAt > 45000) {
+        activeRoom = {
+          roomCode: "PUB" + Math.random().toString(36).substring(2, 6).toUpperCase(),
+          createdAt: now,
+        };
+        await this.room.storage.put("active_public_room", activeRoom);
+      }
+
+      return new Response(JSON.stringify({ roomCode: activeRoom.roomCode }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response("Not found", { status: 404 });
+  }
+
   onConnect(conn: Party.Connection) {
     this.broadcastState();
   }
@@ -78,6 +100,8 @@ export default class GameServer implements Party.Server {
   onClose(conn: Party.Connection) {
     delete this.state.players[conn.id];
     const humanCount = Object.values(this.state.players).filter((p) => !p.isAi && !p.isSimulatedHuman).length;
+    
+    // Stop countdown if human count drops below 2
     if (this.state.phase === "LOBBY" && humanCount < 2 && this.lobbyCountdownInterval) {
       clearInterval(this.lobbyCountdownInterval);
       this.lobbyCountdownInterval = null;
@@ -109,6 +133,7 @@ export default class GameServer implements Party.Server {
       };
       this.broadcastState();
 
+      // Only start countdown once 2 or more real humans are present
       const realHumans = Object.values(this.state.players).filter((p) => !p.isAi && !p.isSimulatedHuman).length;
       if (this.state.phase === "LOBBY" && realHumans >= 2 && !this.lobbyCountdownInterval) {
         this.startLobbyAutoCountdown();
@@ -146,12 +171,10 @@ export default class GameServer implements Party.Server {
       };
       this.broadcastState();
 
-      // If targeted player is the OpenAI Bot
       if (data.targetId === this.aiId && this.state.phase === "DISCUSSION") {
         this.handleAiReactionDefense(senderPlayer.agentName || "Agent", data.reaction);
       }
 
-      // If targeted player is a Simulated Human
       const targetSim = this.state.players[data.targetId];
       if (targetSim && targetSim.isSimulatedHuman && this.state.phase === "DISCUSSION") {
         this.handleSimulatedChatReply(targetSim.agentName || "Agent", targetSim);
@@ -174,10 +197,8 @@ export default class GameServer implements Party.Server {
       this.broadcastState();
 
       if (this.state.phase === "DISCUSSION") {
-        // Real AI Bot chatter
         this.handleAiChatReply();
 
-        // Check if any dummy bot was called out by name in chat
         const lowerText = data.text.toLowerCase();
         const sims = Object.values(this.state.players).filter((p) => p.isSimulatedHuman);
 
@@ -272,21 +293,13 @@ export default class GameServer implements Party.Server {
     }
   }
 
-  async notifyMatchmakerLock() {
-    try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      await fetch(`${appUrl}/api/matchmake`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomCode: this.room.id, isLocked: true }),
-      });
-    } catch {}
-  }
-
   async startGame(isSoloSimulation: boolean = false) {
-    const existingCount = Object.keys(this.state.players).filter((k) => k !== this.aiId).length;
+    const realHumans = Object.values(this.state.players).filter((p) => !p.isAi && !p.isSimulatedHuman);
 
-    if (isSoloSimulation || existingCount < 3) {
+    // Rule:
+    // If only 1 human is playing (or solo simulation clicked) -> add 2 dummy bots to make 4 players total
+    // If 2 or more real humans are playing -> NO dummy bots are added; purely real humans + 1 AI bot
+    if (isSoloSimulation || realHumans.length === 1) {
       if (!this.state.players["sim-human-1"]) {
         this.state.players["sim-human-1"] = {
           id: "sim-human-1",
@@ -307,8 +320,13 @@ export default class GameServer implements Party.Server {
           score: 0,
         };
       }
+    } else {
+      // Clean up any simulation bots if 2+ humans joined
+      delete this.state.players["sim-human-1"];
+      delete this.state.players["sim-human-2"];
     }
 
+    // Add 1 OpenAI Impostor
     this.state.players[this.aiId] = {
       id: this.aiId,
       name: "OpenAI Bot",
@@ -336,7 +354,6 @@ export default class GameServer implements Party.Server {
     this.state.lastReaction = undefined;
     this.broadcastState();
 
-    this.notifyMatchmakerLock().catch(() => {});
     this.handleAiAnswer();
     this.handleSimulatedAnswers();
     this.startTimer(() => this.startDiscussionPhase());

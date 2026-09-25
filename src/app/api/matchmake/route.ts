@@ -1,31 +1,22 @@
 import { NextResponse } from "next/server";
 
-let currentPublicRoom: { roomCode: string; createdAt: number; isLocked: boolean } | null = null;
-
-const generateCode = () => "PUB" + Math.random().toString(36).substring(2, 6).toUpperCase();
-
 export async function GET() {
-  const now = Date.now();
+  const partyHost = process.env.NEXT_PUBLIC_PARTYKIT_HOST || "127.0.0.1:1999";
+  const protocol =
+    partyHost.includes("localhost") || partyHost.includes("127.0.0.1") ? "http" : "https";
 
-  if (!currentPublicRoom || currentPublicRoom.isLocked || now - currentPublicRoom.createdAt > 45000) {
-    currentPublicRoom = {
-      roomCode: generateCode(),
-      createdAt: now,
-      isLocked: false,
-    };
-  }
-
-  return NextResponse.json({ roomCode: currentPublicRoom.roomCode });
-}
-
-export async function POST(req: Request) {
   try {
-    const { roomCode, isLocked } = await req.json();
-    if (currentPublicRoom && currentPublicRoom.roomCode === roomCode) {
-      currentPublicRoom.isLocked = isLocked;
-    }
-    return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json({ success: false });
+    const res = await fetch(`${protocol}://${partyHost}/parties/main/matchmaker`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "GET_OR_CREATE_PUBLIC_ROOM" }),
+      cache: "no-store",
+    });
+
+    const data = await res.json();
+    return NextResponse.json({ roomCode: data.roomCode });
+  } catch (err) {
+    const fallback = "PUB" + Math.random().toString(36).substring(2, 6).toUpperCase();
+    return NextResponse.json({ roomCode: fallback });
   }
 }
