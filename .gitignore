@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# PartyKit & local Durable Object storage
+.partykit/
+.party/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+PartyKitDurable/
+**/PartyKitDurable/**
+
+# Cloudflare quick tunnels
+.cloudflared/
