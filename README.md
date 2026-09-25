@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🕵️ Turing Trap
 
-## Getting Started
+> **A high-stakes, real-time social deduction party game where human operatives attempt to spot an undercover AI infiltrator—before they are deceived.**
 
-First, run the development server:
+Built for the PartyKit & Next.js Hackathon Challenge.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ⚡ The Concept
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Inspired by the Turing Test and games like *Among Us*, **Turing Trap** drops players into a secure interrogation room. 
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Each round, every participant is assigned an encrypted disguise alias (`Agent Cobalt`, `Agent Phantom`, etc.). Everyone receives a rapid-fire prompt. Among the operatives lurks an undercover **OpenAI agent** tasked with mimicking human conversational nuances, casual phrasing, and defensive pushback.
 
-## Learn More
+Operatives must cross-examine each other's responses in live chat, tag suspicious answers with reaction badges, and cast their ballots before the timer expires.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🛠️ Architecture & Tech Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Frontend:** Next.js (App Router), React, Tailwind CSS, Lucide Icons.
+- **Real-Time State & WebSockets:** [PartyKit](https://partykit.io) (Cloudflare Workers / Durable Objects) managing synchronized multi-phase game rooms, timers, and lobby auto-launching.
+- **AI Agent Intelligence:** OpenAI GPT-4o-mini:
+  - *Dynamic Prompts:* Generates witty, non-trivia conversational questions.
+  - *Casual Infiltration:* Calibrated system prompts that produce short, human-like answers without punctuation, corporate fluff, or robotic tone.
+  - *Contextual Interrogation Defense:* Uses fuzzy token matching to recognize accusations and typos directed at its disguise and fires back defensively in live chat.
+- **Judge / Solo Simulation Mode:** A zero-friction testing mode that automatically spawns simulated agents to allow full-gameplay validation by a single evaluator.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🚀 Game Loop
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Lobby & Matchmaking:** Centralized WebSocket room allocation with automatic countdown upon reaching player threshold.
+2. **Encrypted Question Phase:** Dynamic prompt issued; operatives submit concise answers under cover identities.
+3. **Live Interrogation Channel:** Intercepted answers are exposed; players exchange real-time chat messages and fire reaction badges.
+4. **Voting Terminal:** Blind ballot submission targeting the suspected machine.
+5. **Mission Dossier:** Complete unmasking, identity reveal, and scoring audit trail.
