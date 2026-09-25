@@ -146,8 +146,15 @@ export default class GameServer implements Party.Server {
       };
       this.broadcastState();
 
+      // If targeted player is the OpenAI Bot
       if (data.targetId === this.aiId && this.state.phase === "DISCUSSION") {
         this.handleAiReactionDefense(senderPlayer.agentName || "Agent", data.reaction);
+      }
+
+      // If targeted player is a Simulated Human
+      const targetSim = this.state.players[data.targetId];
+      if (targetSim && targetSim.isSimulatedHuman && this.state.phase === "DISCUSSION") {
+        this.handleSimulatedChatReply(targetSim.agentName || "Agent", targetSim);
       }
     }
 
@@ -167,7 +174,20 @@ export default class GameServer implements Party.Server {
       this.broadcastState();
 
       if (this.state.phase === "DISCUSSION") {
+        // Real AI Bot chatter
         this.handleAiChatReply();
+
+        // Check if any dummy bot was called out by name in chat
+        const lowerText = data.text.toLowerCase();
+        const sims = Object.values(this.state.players).filter((p) => p.isSimulatedHuman);
+
+        for (const sim of sims) {
+          const simName = (sim.agentName || "").toLowerCase().replace("agent ", "");
+          if (simName.length > 0 && lowerText.includes(simName)) {
+            this.handleSimulatedChatReply(sim.agentName || "Agent", sim);
+            break;
+          }
+        }
       }
     }
 
@@ -264,7 +284,6 @@ export default class GameServer implements Party.Server {
   }
 
   async startGame(isSoloSimulation: boolean = false) {
-    // Fail-safe: Always ensure at least 3 players + 1 AI bot for a full 4-agent match
     const existingCount = Object.keys(this.state.players).filter((k) => k !== this.aiId).length;
 
     if (isSoloSimulation || existingCount < 3) {
@@ -391,6 +410,34 @@ export default class GameServer implements Party.Server {
         this.checkEarlyTransitionToDiscussion();
       }, Math.floor(Math.random() * 2000) + 3000);
     }
+  }
+
+  handleSimulatedChatReply(accusedAgentName: string, simPlayer: Player) {
+    const defenseLines = [
+      "bro what im literally human",
+      "not me lol check the other answers",
+      "why u on me",
+      "definitely not bot haha",
+      "bruh look at my answer",
+      "im right here chill",
+      "nah you got the wrong one"
+    ];
+
+    const reply = defenseLines[Math.floor(Math.random() * defenseLines.length)];
+
+    setTimeout(() => {
+      if (this.state.phase === "DISCUSSION") {
+        this.state.chat.push({
+          id: Math.random().toString(36).substring(7),
+          senderId: simPlayer.id,
+          senderAgentName: simPlayer.agentName || "Agent",
+          senderAgentAvatar: simPlayer.agentAvatar || "👤",
+          text: reply,
+          timestamp: Date.now(),
+        });
+        this.broadcastState();
+      }
+    }, Math.floor(Math.random() * 1500) + 1200);
   }
 
   async handleAiAnswer() {

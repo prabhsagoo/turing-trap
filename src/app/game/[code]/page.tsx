@@ -234,7 +234,11 @@ export default function GameRoom({ params }: { params: Promise<{ code: string }>
                       )}
                     </div>
                   </div>
-                  <span className="font-mono text-xs text-slate-400 font-bold">{p.score} pts</span>
+                  
+                  {/* Points only visible in Lobby and Results to prevent intel leaks */}
+                  {(isLobby || isResults) && (
+                    <span className="font-mono text-xs text-slate-400 font-bold">{p.score} pts</span>
+                  )}
                 </div>
               );
             })}
@@ -250,7 +254,7 @@ export default function GameRoom({ params }: { params: Promise<{ code: string }>
               <h3 className="text-lg font-bold mb-1">Mission Staging Area</h3>
               <p className="text-xs sm:text-sm text-slate-400 max-w-sm mb-6">
                 Operatives receive undercover disguises. One undercover participant is an OpenAI infiltrator imitating
-                human chatter[cite: 1].
+                human chatter.
               </p>
 
               {humanPlayers.length >= 2 && gameState.timer > 0 ? (
